@@ -1,10 +1,10 @@
 
 //------------------------------------------------------------------------------------------------------|
-// IMAGE HIGHBOOSTING IN FREQUENCY DOMAIN USING DISCRETE FOURIER TRANSFORMATION AND IDEAL FILTER.		|
+// IMAGE HIGHBOOSTING IN FREQUENCY DOMAIN USING DISCRETE FOURIER TRANSFORMATION AND IDEAL FILTER.	|
 // IMAGE HIGHBOOSTING IN FREQUENCY DOMAIN USING DISCRETE FOURIER TRANSFORMATION AND GAUSSIAN FILTER.	|
 // IMAGE HIGHBOOSTING IN FREQUENCY DOMAIN USING DISCRETE FOURIER TRANSFORMSTION AND BUTTERWORTH FILTER. |
-// IMAGE HIGHBOOSTING IN FREQUENCY DOMAIN USING DISCRETE FOURIER TRANSFORMSTION AND LoG FILTER.			|
-// Image Highboosting.cpp : Defines the entry point for the console application.						|
+// IMAGE HIGHBOOSTING IN FREQUENCY DOMAIN USING DISCRETE FOURIER TRANSFORMSTION AND LoG FILTER.		|
+// Image Highboosting.cpp : Defines the entry point for the console application.			|
 //------------------------------------------------------------------------------------------------------|
 
 //++++++++++++++++++++++++++++++++++ START HEADER FILES +++++++++++++++++++++++++++++++++++++++++++++
@@ -29,232 +29,232 @@ using namespace cv;
 //+++++++++++++++++++++++++++++++++ HORIZONTAL DFT KERNEL +++++++++++++++++++++++++++++++++++++++++++
 // OpenCL Horizontal Row Wise DFT Kernel Which Is Run For Every Work Item Created.
 const char* HDFT_Kernel =
-"#pragma OPENCL EXTENSION cl_khr_fp32 : enable													\n" \
-"__kernel																						\n" \
-"void HDFT_Kernel(__global const uchar* data,													\n" \
-"					__global float2* in,														\n" \
-"					__local float2* SharedArray,												\n" \
-"					int width,																	\n" \
-"					float norm)																	\n" \
-"{																								\n" \
-"	size_t globalID = get_global_id(0);															\n" \
-"	size_t localID = get_local_id(0);															\n" \
-"	size_t groupID = get_group_id(0);															\n" \
-"	size_t groupSize = get_local_size(0);														\n" \
-"	int v = globalID % width;																	\n" \
-"	float param = (-2.0*v)/width;																\n" \
-"	SharedArray[localID] = (0.0, 0.0);															\n" \
-"	float c, s;																					\n" \
-"	int valueH;																					\n" \
-"	// Horizontal DFT Transformation															\n" \
-"	for (int i = 0; i < groupSize; i++)															\n" \
-"	{																							\n" \
-"		valueH = (int)data[groupSize * groupID + i];											\n" \
-"		s = sinpi(i * param);																	\n" \
-"		c = cospi(i * param);																	\n" \
-"		SharedArray[localID].x += valueH * c;													\n" \
-"		SharedArray[localID].y += valueH * s;													\n" \
-"	}																							\n" \
-"	in[groupSize * groupID +localID].x = norm*SharedArray[localID].x;							\n" \
-"	in[groupSize * groupID +localID].y = norm*SharedArray[localID].y;							\n" \
-"}																								\n" \
+"#pragma OPENCL EXTENSION cl_khr_fp32 : enable							\n" \
+"__kernel											\n" \
+"void HDFT_Kernel(__global const uchar* data,							\n" \
+"					__global float2* in,					\n" \
+"					__local float2* SharedArray,				\n" \
+"					int width,						\n" \
+"					float norm)						\n" \
+"{												\n" \
+"	size_t globalID = get_global_id(0);							\n" \
+"	size_t localID = get_local_id(0);							\n" \
+"	size_t groupID = get_group_id(0);							\n" \
+"	size_t groupSize = get_local_size(0);							\n" \
+"	int v = globalID % width;								\n" \
+"	float param = (-2.0*v)/width;								\n" \
+"	SharedArray[localID] = (0.0, 0.0);							\n" \
+"	float c, s;										\n" \
+"	int valueH;										\n" \
+"	// Horizontal DFT Transformation							\n" \
+"	for (int i = 0; i < groupSize; i++)							\n" \
+"	{											\n" \
+"		valueH = (int)data[groupSize * groupID + i];					\n" \
+"		s = sinpi(i * param);								\n" \
+"		c = cospi(i * param);								\n" \
+"		SharedArray[localID].x += valueH * c;						\n" \
+"		SharedArray[localID].y += valueH * s;						\n" \
+"	}											\n" \
+"	in[groupSize * groupID +localID].x = norm*SharedArray[localID].x;			\n" \
+"	in[groupSize * groupID +localID].y = norm*SharedArray[localID].y;			\n" \
+"}												\n" \
 "\n";
 //++++++++++++++++++++++++++++++++++++ END H-DFT KERNEL +++++++++++++++++++++++++++++++++++++++++++++
 
 //+++++++++++++++++++++++++++++++++ HORIZONTAL IDFT KERNEL ++++++++++++++++++++++++++++++++++++++++++
 // OpenCL Horizontal Row Wise IDFT Kernel Which Is Run For Every Work Item Created.
 const char* HIDFT_Kernel =
-"#pragma OPENCL EXTENSION cl_khr_fp32 : enable										        	\n" \
-"__kernel																						\n" \
-"void HIDFT_Kernel(__global uchar* data,														\n" \
-"					__global const float2* in,													\n" \
-"					__local float2* SharedArray,												\n" \
-"					int width,																	\n" \
-"					float norm)																	\n" \
-"{																								\n" \
-"	int globalID = get_global_id(0);															\n" \
-"	int localID = get_local_id(0);																\n" \
-"	int groupID = get_group_id(0);																\n" \
-"	int groupSize = get_local_size(0);															\n" \
-"	int v = globalID % width;																	\n" \
-"	float param = (2.0*v)/width;																\n" \
-"	SharedArray[localID] = (0.0, 0.0);															\n" \
-"	float c, s;																					\n" \
-"	float2 value;																				\n" \
-"	// Horizontal IDFT Transformation															\n" \
-"	for (int i = 0; i < groupSize; i++)															\n" \
-"	{																							\n" \
-"		value = in[groupSize * groupID + i];													\n" \
-"		s = sinpi(i * param);																	\n" \
-"		c = cospi(i * param);														    		\n" \
-"		SharedArray[localID].x +=	value.x * c - value.y * s;						 			\n" \
-"		SharedArray[localID].y +=	value.x * s + value.y * c;									\n" \
-"	}																							\n" \
-"	data[groupSize*groupID +localID] = (uchar)(norm*SharedArray[localID].x);					\n" \
-"}																								\n" \
+"#pragma OPENCL EXTENSION cl_khr_fp32 : enable					        	\n" \
+"__kernel											\n" \
+"void HIDFT_Kernel(__global uchar* data,							\n" \
+"					__global const float2* in,				\n" \
+"					__local float2* SharedArray,				\n" \
+"					int width,						\n" \
+"					float norm)						\n" \
+"{												\n" \
+"	int globalID = get_global_id(0);							\n" \
+"	int localID = get_local_id(0);								\n" \
+"	int groupID = get_group_id(0);								\n" \
+"	int groupSize = get_local_size(0);							\n" \
+"	int v = globalID % width;								\n" \
+"	float param = (2.0*v)/width;								\n" \
+"	SharedArray[localID] = (0.0, 0.0);							\n" \
+"	float c, s;										\n" \
+"	float2 value;										\n" \
+"	// Horizontal IDFT Transformation							\n" \
+"	for (int i = 0; i < groupSize; i++)							\n" \
+"	{											\n" \
+"		value = in[groupSize * groupID + i];						\n" \
+"		s = sinpi(i * param);								\n" \
+"		c = cospi(i * param);						    		\n" \
+"		SharedArray[localID].x += value.x * c - value.y * s;				\n" \
+"		SharedArray[localID].y += value.x * s + value.y * c;				\n" \
+"	}											\n" \
+"	data[groupSize*groupID +localID] = (uchar)(norm*SharedArray[localID].x);		\n" \
+"}												\n" \
 "\n";
 //++++++++++++++++++++++++++++++++++++ END H-IDFT KERNEL ++++++++++++++++++++++++++++++++++++++++++++
 
 //+++++++++++++++++++++++++++++++++++ VERTICAL DFT KERNEL +++++++++++++++++++++++++++++++++++++++++++
 // OpenCL Vertical Column Wise DFT Kernel Which Is Run For Every Work Item Created.
 const char* VDFT_Kernel =
-"#pragma OPENCL EXTENSION cl_khr_fp32 : enable													\n" \
-"__kernel																						\n" \
-"void VDFT_Kernel(__global const float2* in,													\n" \
-"					__global float2* out,														\n" \
-"					__local float2* SharedArray,												\n" \
-"					int width,																	\n" \
-"					float norm)																	\n" \
-"{																								\n" \
-"	size_t globalID = get_global_id(0);															\n" \
-"	size_t localID = get_local_id(0);															\n" \
-"	size_t groupID = get_group_id(0);															\n" \
-"	size_t groupSize = get_local_size(0);														\n" \
-"	int v = globalID % width;																	\n" \
-"	float param = (-2.0*v)/width;																\n" \
-"	SharedArray[localID] = (0.0, 0.0);															\n" \
-"	float c, s, valueH;																			\n" \
-"	float2 value;															    				\n" \
-"	// Horizontal DFT Transformation															\n" \
-"	for (int i = 0; i < groupSize; i++)															\n" \
-"	{																							\n" \
-"		value = in[groupSize * i + groupID];													\n" \
-"		s = sinpi(i * param);																	\n" \
-"		c = cospi(i * param);																	\n" \
-"		SharedArray[localID].x += value.x * c - value.y * s;									\n" \
-"		SharedArray[localID].y += value.x * s + value.y * c;									\n" \
-"	}																							\n" \
-"	out[groupSize * localID + groupID].x= norm*SharedArray[localID].x;							\n" \
-"	out[groupSize * localID + groupID].y= norm*SharedArray[localID].y;							\n" \
-"}																								\n" \
+"#pragma OPENCL EXTENSION cl_khr_fp32 : enable							\n" \
+"__kernel											\n" \
+"void VDFT_Kernel(__global const float2* in,							\n" \
+"					__global float2* out,					\n" \
+"					__local float2* SharedArray,				\n" \
+"					int width,						\n" \
+"					float norm)						\n" \
+"{												\n" \
+"	size_t globalID = get_global_id(0);							\n" \
+"	size_t localID = get_local_id(0);							\n" \
+"	size_t groupID = get_group_id(0);							\n" \
+"	size_t groupSize = get_local_size(0);							\n" \
+"	int v = globalID % width;								\n" \
+"	float param = (-2.0*v)/width;								\n" \
+"	SharedArray[localID] = (0.0, 0.0);							\n" \
+"	float c, s, valueH;									\n" \
+"	float2 value;						    				\n" \
+"	// Horizontal DFT Transformation							\n" \
+"	for (int i = 0; i < groupSize; i++)							\n" \
+"	{											\n" \
+"		value = in[groupSize * i + groupID];						\n" \
+"		s = sinpi(i * param);								\n" \
+"		c = cospi(i * param);								\n" \
+"		SharedArray[localID].x += value.x * c - value.y * s;				\n" \
+"		SharedArray[localID].y += value.x * s + value.y * c;				\n" \
+"	}											\n" \
+"	out[groupSize * localID + groupID].x= norm*SharedArray[localID].x;			\n" \
+"	out[groupSize * localID + groupID].y= norm*SharedArray[localID].y;			\n" \
+"}												\n" \
 "\n";
 //++++++++++++++++++++++++++++++++++++ END V-DFT KERNEL +++++++++++++++++++++++++++++++++++++++++++++
 
 //+++++++++++++++++++++++++++++++++++ VERTICAL IDFT KERNEL ++++++++++++++++++++++++++++++++++++++++++
 // OpenCL Vertical Column Wise IDFT Kernel Which Is Run For Every Work Item Created.
 const char* VIDFT_Kernel =
-"#pragma OPENCL EXTENSION cl_khr_fp32 : enable													\n" \
-"__kernel																						\n" \
-"void VIDFT_Kernel(__global float2* in,															\n" \
-"					__global const float2* out,													\n" \
-"					__local float2* SharedArray,												\n" \
-"					int width,																	\n" \
-"					float norm)																	\n" \
-"{																								\n" \
-"	int globalID = get_global_id(0);															\n" \
-"	int localID = get_local_id(0);																\n" \
-"	int groupID = get_group_id(0);																\n" \
-"	int groupSize = get_local_size(0);															\n" \
-"	int v = globalID % width;																	\n" \
-"	float param = (2.0*v)/width;																\n" \
-"	SharedArray[localID] = (0.0, 0.0);															\n" \
-"	float c, s;																					\n" \
-"	float2 value;																				\n" \
-"	// Horizontal IDFT Transformation															\n" \
-"	for (int i = 0; i < groupSize; i++)															\n" \
-"	{																							\n" \
-"		value = out[groupSize * i + groupID];													\n" \
-"		s = sinpi(i * param);																	\n" \
-"		c = cospi(i * param);																	\n" \
-"		SharedArray[localID].x +=	value.x * c - value.y * s;									\n" \
-"		SharedArray[localID].y +=	value.x * s + value.y * c;									\n" \
-"	}																							\n" \
-"	in[groupSize * localID + groupID].x= norm*SharedArray[localID].x;							\n" \
-"	in[groupSize * localID + groupID].y= norm*SharedArray[localID].y;							\n" \
-"}																								\n" \
+"#pragma OPENCL EXTENSION cl_khr_fp32 : enable							\n" \
+"__kernel											\n" \
+"void VIDFT_Kernel(__global float2* in,								\n" \
+"					__global const float2* out,				\n" \
+"					__local float2* SharedArray,				\n" \
+"					int width,						\n" \
+"					float norm)						\n" \
+"{												\n" \
+"	int globalID = get_global_id(0);							\n" \
+"	int localID = get_local_id(0);								\n" \
+"	int groupID = get_group_id(0);								\n" \
+"	int groupSize = get_local_size(0);							\n" \
+"	int v = globalID % width;								\n" \
+"	float param = (2.0*v)/width;								\n" \
+"	SharedArray[localID] = (0.0, 0.0);							\n" \
+"	float c, s;										\n" \
+"	float2 value;										\n" \
+"	// Horizontal IDFT Transformation							\n" \
+"	for (int i = 0; i < groupSize; i++)							\n" \
+"	{											\n" \
+"		value = out[groupSize * i + groupID];						\n" \
+"		s = sinpi(i * param);								\n" \
+"		c = cospi(i * param);								\n" \
+"		SharedArray[localID].x +=	value.x * c - value.y * s;			\n" \
+"		SharedArray[localID].y +=	value.x * s + value.y * c;			\n" \
+"	}											\n" \
+"	in[groupSize * localID + groupID].x= norm*SharedArray[localID].x;			\n" \
+"	in[groupSize * localID + groupID].y= norm*SharedArray[localID].y;			\n" \
+"}												\n" \
 "\n";
 //++++++++++++++++++++++++++++++++++++ END V-IDFT KERNEL ++++++++++++++++++++++++++++++++++++++++++++
 
 //+++++++++++++++++++++++++++++++++++ IDEAL KERNEL ++++++++++++++++++++++++++++++++++++++++++++++++++
 // OpenCL High Boost Ideal Filter Kernel Which Is Run For Every Work Item Created
 const char *ideal_kernel =
-"#define EXP 2.72																				\n" \
-"#pragma OPENCL EXTENSION cl_khr_fp32 : enable													\n"	\
-"#pragma OPENCL EXTENSION cl_khr_printf : enable												\n"	\
-"__kernel																						\n"	\
-"void ideal_kernel (__global float* filter,														\n"	\
-"		int height,																				\n"	\
-"		int width,																				\n"	\
-"		int CUTOFF)																				\n"	\
-"{																								\n"	\
-"	// Get the index of work items																\n"	\
-"	uint index = get_global_id(0);																\n"	\
-"	int U = index / width;																		\n"	\
-"	int V = index % width;																		\n"	\
-"	float D = pow(height/2 - abs(U - height/2), 2.0) 											\n"	\
-"												+ pow(width/2 - abs(V - width/2), 2.0);			\n" \
-"	filter[index] = 1.0 + ((sqrt(D) > CUTOFF)? 1.0 : 0.0);										\n"	\
-"}																								\n"	\
+"#define EXP 2.72										\n" \
+"#pragma OPENCL EXTENSION cl_khr_fp32 : enable							\n" \
+"#pragma OPENCL EXTENSION cl_khr_printf : enable						\n" \
+"__kernel											\n" \
+"void ideal_kernel (__global float* filter,							\n" \
+"		int height,									\n" \
+"		int width,									\n" \
+"		int CUTOFF)									\n" \
+"{												\n" \
+"	// Get the index of work items								\n" \
+"	uint index = get_global_id(0);								\n" \
+"	int U = index / width;									\n" \
+"	int V = index % width;									\n" \
+"	float D = pow(height/2 - abs(U - height/2), 2.0) 					\n" \
+"						+ pow(width/2 - abs(V - width/2), 2.0);		\n" \
+"	filter[index] = 1.0 + ((sqrt(D) > CUTOFF)? 1.0 : 0.0);					\n" \
+"}												\n" \
 "\n";
 //+++++++++++++++++++++++++++++++++ END IDEAL KERNEL ++++++++++++++++++++++++++++++++++++++++++++++++
 
 //+++++++++++++++++++++++++++++++++++ GAUSSIAN KERNEL +++++++++++++++++++++++++++++++++++++++++++++++
 // OpenCL High Boost Gaussian Filter Kernel Which Is Run For Every Work Item Created
 const char *gaussian_kernel =
-"#define EXP 2.72																				\n" \
-"#pragma OPENCL EXTENSION cl_khr_fp32 : enable													\n"	\
-"#pragma OPENCL EXTENSION cl_khr_printf : enable												\n"	\
-"__kernel																						\n"	\
-"void gaussian_kernel (__global float* filter,													\n"	\
-"		int height,																				\n"	\
-"		int width,																				\n"	\
-"		int CUTOFF)																				\n"	\
-"{																								\n"	\
-"	// Get the index of work items																\n"	\
-"	uint index = get_global_id(0);																\n"	\
-"	int U = index / width;																		\n"	\
-"	int V = index % width;																		\n"	\
-"	float D = pow(height/2 - abs(U - height/2), 2.0) 											\n"	\
-"											+ pow(width/2 - abs(V - width/2), 2.0);				\n" \
-"	filter[index] = 2.0 - pow(EXP, (-1.0 * D / (2.0 * pow(CUTOFF, 2.0))));						\n"	\
-"}																								\n"	\
+"#define EXP 2.72										\n" \
+"#pragma OPENCL EXTENSION cl_khr_fp32 : enable							\n" \
+"#pragma OPENCL EXTENSION cl_khr_printf : enable						\n" \
+"__kernel											\n" \
+"void gaussian_kernel (__global float* filter,							\n" \
+"		int height,									\n" \
+"		int width,									\n" \
+"		int CUTOFF)									\n" \
+"{												\n" \
+"	// Get the index of work items								\n" \
+"	uint index = get_global_id(0);								\n" \
+"	int U = index / width;									\n" \
+"	int V = index % width;									\n" \
+"	float D = pow(height/2 - abs(U - height/2), 2.0) 					\n" \
+"						+ pow(width/2 - abs(V - width/2), 2.0);		\n" \
+"	filter[index] = 2.0 - pow(EXP, (-1.0 * D / (2.0 * pow(CUTOFF, 2.0))));			\n" \
+"}												\n" \
 "\n";
 //+++++++++++++++++++++++++++++++++ END GAUSSIAN KERNEL +++++++++++++++++++++++++++++++++++++++++++++
 
 //+++++++++++++++++++++++++++++++++++ BUTTERWORTH KERNEL ++++++++++++++++++++++++++++++++++++++++++++
 // OpenCL High Boost Butterworth Filter Kernel Which Is Run For Every Work Item Created
 const char *butterworth_kernel =
-"#define EXP 2.72																				\n" \
-"#pragma OPENCL EXTENSION cl_khr_fp32 : enable													\n"	\
-"#pragma OPENCL EXTENSION cl_khr_printf : enable												\n"	\
-"__kernel																						\n"	\
-"void butterworth_kernel (__global float* filter,												\n"	\
-"		int height,																				\n"	\
-"		int width,																				\n"	\
-"		int CUTOFF,																				\n"	\
-"		float Ord)																				\n"	\
-"{																								\n"	\
-"	// Get the index of work items																\n"	\
-"	uint index = get_global_id(0);																\n"	\
-"	int U = index / width;																		\n"	\
-"	int V = index % width;																		\n"	\
-"	float D = pow(height/2 - abs(U - height/2), 2.0) 											\n"	\
-"											+ pow(width/2 - abs(V - width/2), 2.0);				\n"	\
-"	filter[index] = 1.0 + 1.0 / (1 + pow (CUTOFF / sqrt(D), 2 * Ord));							\n"	\
-"}																								\n"	\
+"#define EXP 2.72										\n" \
+"#pragma OPENCL EXTENSION cl_khr_fp32 : enable							\n" \
+"#pragma OPENCL EXTENSION cl_khr_printf : enable						\n" \
+"__kernel											\n" \
+"void butterworth_kernel (__global float* filter,						\n" \
+"		int height,									\n" \
+"		int width,									\n" \
+"		int CUTOFF,									\n" \
+"		float Ord)									\n" \
+"{												\n" \
+"	// Get the index of work items								\n" \
+"	uint index = get_global_id(0);								\n" \
+"	int U = index / width;									\n" \
+"	int V = index % width;									\n" \
+"	float D = pow(height/2 - abs(U - height/2), 2.0) 					\n" \
+"				+ pow(width/2 - abs(V - width/2), 2.0);				\n" \
+"	filter[index] = 1.0 + 1.0 / (1 + pow (CUTOFF / sqrt(D), 2 * Ord));			\n" \
+"}												\n" \
 "\n";
 //+++++++++++++++++++++++++++++++++ END BUTTERWORTH KERNEL ++++++++++++++++++++++++++++++++++++++++++
 
 //++++++++++++++++++++++++++++++ LAPLACIAN OF GAUSSIAN KERNEL +++++++++++++++++++++++++++++++++++++++
 // OpenCL Highboost LoG Filter Kernel Which Is Run For Every Work Item Created
 const char *LoG_kernel =
-"#define EXP 2.72																				\n" \
-"#pragma OPENCL EXTENSION cl_khr_fp32 : enable													\n"	\
-"#pragma OPENCL EXTENSION cl_khr_printf : enable												\n"	\
-"__kernel																						\n"	\
-"void LoG_kernel (__global float* filter,														\n"	\
-"		int height,																				\n"	\
-"		int width,																				\n"	\
-"		int CUTOFF)																				\n"	\
-"{																								\n"	\
-"	// Get the index of work items																\n"	\
-"	uint index = get_global_id(0);																\n"	\
-"	int U = index / width;																		\n"	\
-"	int V = index % width;																		\n"	\
-"	float Freq = pow(CUTOFF, 2.0);																\n" \
-"	float D = pow(height/2 - abs(U - height/2), 2.0) 											\n"	\
-"											+ pow(width/2 - abs(V - width/2), 2.0);				\n"	\
-"	filter[index] = 2.0 - (1.0 - D / Freq) * pow(EXP, -1.0 * D / (2.0 * Freq));					\n"	\
+"#define EXP 2.72										\n" \
+"#pragma OPENCL EXTENSION cl_khr_fp32 : enable							\n" \
+"#pragma OPENCL EXTENSION cl_khr_printf : enable						\n" \
+"__kernel											\n" \
+"void LoG_kernel (__global float* filter,							\n" \
+"		int height,									\n" \
+"		int width,									\n" \
+"		int CUTOFF)									\n" \
+"{												\n" \
+"	// Get the index of work items								\n" \
+"	uint index = get_global_id(0);								\n" \
+"	int U = index / width;									\n" \
+"	int V = index % width;									\n" \
+"	float Freq = pow(CUTOFF, 2.0);								\n" \
+"	float D = pow(height/2 - abs(U - height/2), 2.0) 					\n" \
+"						+ pow(width/2 - abs(V - width/2), 2.0);		\n" \
+"	filter[index] = 2.0 - (1.0 - D / Freq) * pow(EXP, -1.0 * D / (2.0 * Freq));		\n" \
 "}																								\n"	\
 "\n";
 //++++++++++++++++++++++++++ END LAPLACIAN OF GAUSSIAN KERNEL +++++++++++++++++++++++++++++++++++++++
@@ -262,18 +262,18 @@ const char *LoG_kernel =
 //+++++++++++++++++++++++++++++++ IMAGE FILTRATION KERNEL +++++++++++++++=+++++++++++++++++++++++++++
 // OpenCL Frequency Domain Filtration Kernel Which Is Run For Every Work Item Created
 const char *filter_kernel =
-"#define EXP 2.72																				\n" \
-"#pragma OPENCL EXTENSION cl_khr_fp32 : enable													\n"	\
-"#pragma OPENCL EXTENSION cl_khr_printf : enable												\n"	\
-"__kernel																						\n"	\
-"void filter_kernel (__global float2* data,														\n"	\
-"		__global float* filter)																	\n"	\
-"{																								\n"	\
-"	// Get the index of work items																\n"	\
-"	uint index = get_global_id(0);																\n"	\
-"	data[index].x = data[index].x * filter[index];												\n"	\
-"	data[index].y = data[index].y * filter[index];			   									\n"	\
-"}																								\n"	\
+"#define EXP 2.72										\n" \
+"#pragma OPENCL EXTENSION cl_khr_fp32 : enable							\n" \
+"#pragma OPENCL EXTENSION cl_khr_printf : enable						\n" \
+"__kernel											\n" \
+"void filter_kernel (__global float2* data,							\n" \
+"		__global float* filter)								\n" \
+"{												\n" \
+"	// Get the index of work items								\n" \
+"	uint index = get_global_id(0);								\n" \
+"	data[index].x = data[index].x * filter[index];						\n" \
+"	data[index].y = data[index].y * filter[index];						\n" \
+"}												\n" \
 "\n";
 //+++++++++++++++++++++++++++ END IMAGE FILTRATION KERNEL +++++++++++++++++++++++++++++++++++++++++++
 
